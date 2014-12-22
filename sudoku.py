@@ -127,10 +127,7 @@ def _solve(grid):
     for i in range(81):
         if grid[i] == '.':
             values = DIGITS - set(grid[n] for n in PEERS[i])
-            if len(values) == 0:
-                return
-            else:
-                unsolved.append((len(values), i, values))
+            unsolved.append((len(values), i, values))
     i, values = min(unsolved)[1:]
     for value in values:
         for solution in _solve(grid[:i] + value + grid[i+1:]):
