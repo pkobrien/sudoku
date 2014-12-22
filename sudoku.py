@@ -124,12 +124,11 @@ def _solve(grid):
         yield grid
         return
     unsolved = []
-    for i in range(81):
-        if grid[i] == '.':
-            values = DIGITS - set(grid[n] for n in PEERS[i])
-            unsolved.append((len(values), i, values))
-    i, values = min(unsolved)[1:]
-    for value in values:
+    for i in [i for i, value in enumerate(grid) if value == '.']:
+        possible_values = DIGITS - set(grid[n] for n in PEERS[i])
+        unsolved.append((len(possible_values), i, possible_values))
+    i, possible_values = min(unsolved)[1:]
+    for value in possible_values:
         for solution in _solve(grid[:i] + value + grid[i+1:]):
             yield solution
 
