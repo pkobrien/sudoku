@@ -8,25 +8,78 @@ function-based code from http://norvig.com/sudoku.html.
 
 import random
 
-__version__ = '0.7.0'
+__version__ = '0.8.0'
 
 
-DIGITS = ('1', '2', '3', '4', '5', '6', '7', '8', '9')
-VALID_GRID_CHARS = DIGITS + ('0', '.')
+DIGITS = {'1', '2', '3', '4', '5', '6', '7', '8', '9'}
+
+VALID_GRID_CHARS = DIGITS.union({'0', '.'})
+
+ROWS = [range(i, i + 9) for i in range(0, 81, 9)]
+
+COLUMNS = [range(i, i + 81, 9) for i in range(9)]
+
+BLOCKS = [sum([range(i + 9 * x, i + 9 * x + 3) for x in range(3)], [])
+          for i in sum([range(z * 27, z * 27 + 9, 3) for z in range(3)], [])]
+
+UNITS = ROWS + COLUMNS + BLOCKS
 
 
-def display_grid(grid):
+def row_indices(i):
+    """Return list of grid index values for squares in the same row as i.
+
+    So if i is 3 its row indices are [0, 1, 2, 3, 4, 5, 6, 7, 8].
+    """
+    start = i - i % 9
+    return range(start, start + 9)
+
+
+def column_indices(i):
+    """Return list of grid index values for squares in the same column as i.
+
+    So if i is 3 its column indices are [3, 12, 21, 30, 39, 48, 57, 66, 75].
+    """
+    start = i % 9
+    return range(start, start + 81, 9)
+
+
+def block_indices(i):
+    """Return list of grid index values for squares in the same block as i.
+
+    So if i is 3 its block indices are [3, 4, 5, 12, 13, 14, 21, 22, 23].
+    """
+    start = 27 * (i // 27) + 3 * ((i % 9) // 3)
+    return sum([range(start + 9 * y, start + 9 * y + 3) for y in range(3)], [])
+
+
+def peer_indices(i):
+    """Return set of grid index values for peers of the square at i.
+
+    Every square has 20 peers.
+    So if i is 3 its peers are {0, 1, 2, 4, 5, 6, 7, 8, 12, 13, 14,
+                                21, 22, 23, 30, 39, 48, 57, 66, 75}.
+    """
+    return (set.union(set(row_indices(i)),
+                      set(column_indices(i)),
+                      set(block_indices(i))
+                      ) - {i})
+
+
+PEERS = [peer_indices(i) for i in range(81)]
+
+
+def display(grid):
     """Print grid in a readable format."""
-    print(format_grid(grid))
+    print(formatted(grid))
 
 
-def format_grid(grid):
-    """Return formatted grid."""
-    grid = normalize_grid(grid)
+def formatted(grid):
+    """Return grid in a readable format."""
+    grid = normalize(grid)
     width = 2
     border = '+'.join(['-' * (1 + (width * 3))] * 3)
     lines = []
-    rows = [grid[n+0:n+9] for n in range(0, 81, 9)]
+    rows = [grid[n:n+9] for n in range(0, 81, 9)]
     for n, row in enumerate(rows):
         line = ' ' + ''.join(
             row[n2].center(width) + ('| ' if n2 in (2, 5) else '')
@@ -37,13 +90,51 @@ def format_grid(grid):
     return '\n' + '\n'.join(lines) + '\n'
 
 
-def normalize_grid(grid):
+def normalize(grid):
     """Return 81 character string of digits (with dots for missing values)."""
     normalized = ''.join([c for c in grid if c in VALID_GRID_CHARS])
     normalized = normalized.replace('0', '.')
     if len(normalized) != 81:
         raise ValueError('Grid is not a proper text representation.')
     return normalized
+
+
+def is_valid(grid):
+    """Return true if grid has no duplicate values within a unit."""
+    grid = normalize(grid)
+    for unit in UNITS:
+        values = [grid[i] for i in unit if grid[i] != '.']
+        if len(values) != len(set(values)):
+            return False
+    return True
+
+
+def solve(grid):
+    """Generate all possible solutions for a solveable grid."""
+    grid = normalize(grid)
+    if not is_valid(grid):
+        return
+    for solution in _solve(grid):
+        yield solution
+
+
+def _solve(grid):
+    """Generate all possible solutions for a solveable grid."""
+    if '.' not in grid:
+        yield grid
+        return
+    unsolved = []
+    for i in range(81):
+        if grid[i] == '.':
+            values = DIGITS - set(grid[n] for n in PEERS[i])
+            if len(values) == 0:
+                return
+            else:
+                unsolved.append((len(values), i, values))
+    i, values = min(unsolved)[1:]
+    for value in values:
+        for solution in _solve(grid[:i] + value + grid[i+1:]):
+            yield solution
 
 
 def shuffled(iterable):
@@ -132,18 +223,16 @@ class Puzzle(object):
         min_assigned_squares = min(min_assigned_squares, 80)
         min_unique_digits = 8
         for square in shuffled(self.squares):
-            if square in self.assigned_squares:
+            if square.was_assigned:
                 # Already assigned as a mirror for symmetry.
                 continue
             if not square._assign_random_digit():
                 break
-#            self.assigned_squares.append(square)
             if symmetrical:
                 other = self.mirror[square]
                 if other is not square:
                     if not other._assign_random_digit():
                         break
-#                    self.assigned_squares.append(other)
             if (len(self.assigned_squares) >= min_assigned_squares and
                     len(self.assigned_digits) >= min_unique_digits):
                 self._attempt_brute_force(True)
@@ -295,7 +384,7 @@ class Square(object):
     def _setup_peers(self):
         """Determine the set of squares that are peers of this square."""
         others = self.row.squares + self.column.squares + self.block.squares
-        self.peers = {square for square in others if square is not self}
+        self.peers = set(others) - {self}
 
 
 class Game(object):
