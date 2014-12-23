@@ -151,7 +151,7 @@ def random_grid(min_assigned_squares=26, symmetrical=True):
                 assigned_squares.append(i)
         unique_digits = {grid_map[i] for i in assigned_squares}
         if (len(assigned_squares) >= min_assigned_squares and
-                unique_digits >= min_unique_digits):
+                len(unique_digits) >= min_unique_digits):
             # Sudoku requires a grid with one and only one solution.
             count = 0
             for solution in solve(to_grid(grid_map)):
@@ -304,6 +304,13 @@ class Puzzle(object):
         return [square for square in self.squares if square.was_assigned]
 
     @property
+    def assigned_grid(self):
+        """Return the assigned grid as an 81 character string."""
+        return ''.join(square.current_value
+                       if square.current_value and square.was_assigned else '.'
+                       for square in self.squares)
+
+    @property
     def current_grid(self):
         """Return the current grid as an 81 character string."""
         return ''.join(square.current_value
@@ -322,10 +329,12 @@ class Puzzle(object):
         """Return True if all squares have been solved."""
         return all(square.is_solved for square in self.squares)
 
-    def setup_random_grid(self, min_assigned_squares=17, symmetrical=True):
-        """Setup random grid with min of 17 to max of 80 squares assigned."""
+    def setup_random_grid(self, min_assigned_squares=26, symmetrical=True):
+        """Setup random grid with a min of 26 to a max of 80 squares assigned.
+
+        Processing a grid with less than 26 squares assigned takes too long."""
         self.reset()
-        min_assigned_squares = max(min_assigned_squares, 17)
+        min_assigned_squares = max(min_assigned_squares, 26)
         min_assigned_squares = min(min_assigned_squares, 80)
         min_unique_digits = 8
         for square in shuffled(self.squares):

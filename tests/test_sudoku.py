@@ -219,5 +219,6 @@ def test_Puzzle_setup_random_grid():
     p = su.Puzzle()
     p.setup_random_grid()
     assert p.is_solved
+    assert len(p.assigned_grid) == 81
     assert len(p.current_grid) == 81
     assert len(p.solved_grid) == 81
