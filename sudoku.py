@@ -95,7 +95,6 @@ def formatted(grid):
     return '\n' + '\n'.join(lines) + '\n'
 
 
-# TODO This could be a list instead of a dictionary.
 def grid_map_all_digits():
     """Return dictionary of {i: string_of_all_digits} pairs."""
     string_of_all_digits = ''.join(DIGITS)
@@ -122,11 +121,6 @@ def normalize(grid):
     if len(normalized) != 81:
         raise ValueError('Grid is not a proper text representation.')
     return normalized
-
-
-def possible_values(grid, index):
-    """Return list of available digit values for grid[index]."""
-    return list(DIGITS - set(grid[n] for n in PEERS[index]))
 
 
 def random_grid(min_assigned_squares=26, symmetrical=True):
@@ -209,7 +203,7 @@ def to_grid(grid_map, unassigned_squares=[]):
     return ''.join(grid_map[i]
                    if len(grid_map[i]) == 1
                    and i not in unassigned_squares else '.'
-                   for i in sorted(grid_map.keys()))
+                   for i in range(81))
 
 
 def replace_value(grid, i, new_value):
@@ -233,6 +227,11 @@ def solve(grid):
         yield solution
 
 
+def _possible_values(grid, index):
+    """Return list of available digit values for grid[index]."""
+    return list(DIGITS - set(grid[n] for n in PEERS[index]))
+
+
 def _solve(grid):
     """Generate all possible solutions for a solveable grid."""
     if '.' not in grid:
@@ -240,7 +239,7 @@ def _solve(grid):
         return
     unsolved = []
     for i in [i for i, value in enumerate(grid) if value == '.']:
-        values = possible_values(grid, i)
+        values = _possible_values(grid, i)
         if not values:
             # Grid cannot be solved.
             return
