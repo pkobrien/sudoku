@@ -22,8 +22,6 @@ COLUMNS = [range(i, i + 81, 9) for i in range(9)]
 BLOCKS = [sum([range(i + 9*x, i + 9*x + 3) for x in range(3)], [])
           for i in sum([range(z*27, z*27 + 9, 3) for z in range(3)], [])]
 
-UNITS = ROWS + COLUMNS + BLOCKS
-
 
 def row_indices(i):
     """Return list of grid index values for squares in the same row as i.
@@ -65,7 +63,14 @@ def peer_indices(i):
                       ) - {i})
 
 
+def unit_indices(i):
+    """Return (row_indices, column_indices, block_indices) for square at i."""
+    return row_indices(i), column_indices(i), block_indices(i)
+
+
 PEERS = [peer_indices(i) for i in range(81)]
+
+UNITS = [unit_indices(i) for i in range(81)]
 
 
 def display(grid):
@@ -90,10 +95,20 @@ def formatted(grid):
     return '\n' + '\n'.join(lines) + '\n'
 
 
+# TODO This could be a list instead of a dictionary.
+def grid_map_all_digits():
+    """Return dictionary of {i: string_of_all_digits} pairs."""
+    string_of_all_digits = ''.join(DIGITS)
+    return {i: string_of_all_digits for i in range(81)}
+
+
 def is_valid(grid):
-    """Return true if grid has no duplicate values within a unit."""
+    """Return true if grid has no duplicate values within a unit.
+
+    Does not guarantee that an unsolved grid can be solved."""
     grid = normalize(grid)
-    for unit in UNITS:
+    units = ROWS + COLUMNS + BLOCKS
+    for unit in units:
         values = [grid[i] for i in unit if grid[i] != '.']
         if len(values) != len(set(values)):
             return False
@@ -114,52 +129,92 @@ def possible_values(grid, index):
     return list(DIGITS - set(grid[n] for n in PEERS[index]))
 
 
-def random_grid(min_assigned_squares=17, symmetrical=True):
+def random_grid(min_assigned_squares=26, symmetrical=True):
     """Return random (grid, solution).
 
-    Assign a min of 17 to max of 80 squares."""
-    min_assigned_squares = max(min_assigned_squares, 17)
+    Assign a minimum of 26 to a maximum of 80 squares.
+    Assigning less than 26 squares takes too long."""
+    min_assigned_squares = max(min_assigned_squares, 26)
     min_assigned_squares = min(min_assigned_squares, 80)
     min_unique_digits = 8
-    grid = '.' * 81
+    grid_map = grid_map_all_digits()
     mirror = list(reversed(range(81)))
+    assigned_squares = []
     for i in shuffled(range(81)):
-        if grid[i] != '.':
+        if i in assigned_squares:
             # Already assigned earlier as a mirror for symmetry.
             continue
-        values = possible_values(grid, i)
-        if not values:
+        if not assign(grid_map, i, random.choice(grid_map[i])):
             break
-        new_value = random.choice(values)
-        grid = replace_value(grid, i, new_value)
+        assigned_squares.append(i)
         if symmetrical:
             # Assign a value to the mirror square as well.
             other_i = mirror[i]
             if other_i != i:
-                values = possible_values(grid, other_i)
-                if not values:
+                if not assign(grid_map, other_i,
+                              random.choice(grid_map[other_i])):
                     break
-                new_value = random.choice(values)
-                grid = replace_value(grid, other_i, new_value)
-        assigned_squares = 81 - grid.count('.')
-        unique_digits = len(set(grid) - {'.'})
-        if (assigned_squares >= min_assigned_squares and
+                assigned_squares.append(i)
+        unique_digits = {grid_map[i] for i in assigned_squares}
+        if (len(assigned_squares) >= min_assigned_squares and
                 unique_digits >= min_unique_digits):
             # Sudoku requires a grid with one and only one solution.
             count = 0
-            for count, solution in enumerate(solve(grid)):
+            for solution in solve(to_grid(grid_map)):
+                count += 1
                 if count > 1:
                     break
-            if not count:
+            if not count == 1:
+                # No solution or more than one solution.
                 break
+            unassigned_squares = set(range(81)) - set(assigned_squares)
+            grid = to_grid(grid_map, unassigned_squares)
             return grid, solution
     # Failed to setup a single-solution grid, so try again.
-    random_grid(min_assigned_squares, symmetrical)
+    return random_grid(min_assigned_squares, symmetrical)
 
 
-def replace_value(grid, index, new_value):
-    """Return grid with grid[index] replaced by new_value."""
-    return grid[:index] + new_value + grid[index+1:]
+def assign(grid_map, i, digit):
+    """Assign digit to grid_map[i] and eliminate from peers."""
+    digits_to_eliminate = grid_map[i].replace(digit, '')
+    if all(eliminate(grid_map, i, d2) for d2 in digits_to_eliminate):
+        return grid_map
+    else:
+        return False
+
+
+def eliminate(grid_map, i, digit):
+    """Eliminate digit from potential digits for square at grid_map[i]."""
+    if digit not in grid_map[i]:
+        return grid_map
+    grid_map[i] = grid_map[i].replace(digit, '')
+    d2 = grid_map[i]
+    if len(d2) == 0:
+        return False
+    elif len(d2) == 1:
+        if not all(eliminate(grid_map, peer, d2) for peer in PEERS[i]):
+            return False
+    for unit in UNITS[i]:
+        places = [i2 for i2 in unit if digit in grid_map[i2]]
+        if len(places) == 0:
+            return False
+        elif len(places) == 1:
+            if not assign(grid_map, places[0], digit):
+                return False
+    return grid_map
+
+
+def to_grid(grid_map, unassigned_squares=[]):
+    """Return grid string from a grid_map dictionary."""
+    return ''.join(grid_map[i]
+                   if len(grid_map[i]) == 1
+                   and i not in unassigned_squares else '.'
+                   for i in sorted(grid_map.keys()))
+
+
+def replace_value(grid, i, new_value):
+    """Return grid with grid[i] replaced by new_value."""
+    return grid[:i] + new_value + grid[i+1:]
 
 
 def shuffled(iterable):
@@ -412,8 +467,8 @@ class Square(object):
             if not all(peer._eliminate(self.possible_digits[0])
                        for peer in self.peers):
                 return False
-        # Check each region to see if digit can now only appear in one place.
-        # If so, assign it to the square in that place.
+        # Check each region to see if digit can now only appear in
+        # one place.  If so, assign it to the square in that place.
         for squares in (self.row.squares, self.column.squares,
                         self.block.squares):
             places = [square for square in squares

@@ -16,9 +16,7 @@ def test_module_constants():
     assert len(su.BLOCKS) == 9
     for block in su.BLOCKS:
         assert len(block) == 9
-    assert len(su.UNITS) == 27
-    for unit in su.UNITS:
-        assert len(unit) == 9
+    assert len(su.UNITS) == 81
     assert len(su.PEERS) == 81
 
 
@@ -115,12 +113,24 @@ def test_is_valid_solved_grid():
     assert su.is_valid(grid)
 
 
+def test_random_grid():
+    grid, solution = su.random_grid(40)
+    assert len(grid) == 81
+    assert len(solution) == 81
+
+
 def test_solve_already_solved():
     grid = '417369825632158947958724316825437169791586432346912758289643571573291684164875293'
     solution = grid
     all_solutions = list(su.solve(grid))
     assert len(all_solutions) == 1
     assert all_solutions[0] == solution
+
+
+def test_solve_unsolveable():
+    bad_grid = '..235..47..54...63.4.92..8.38.19.27.2.6...8.4.54.83.19.3..76.2.87...19..62..481..'
+    assert su.is_valid(bad_grid)
+    assert not list(su.solve(bad_grid))
 
 
 def test_solve_one_solution():
