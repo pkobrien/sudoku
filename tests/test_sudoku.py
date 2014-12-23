@@ -8,9 +8,17 @@ def test_module_constants():
     assert len(su.DIGITS) == 9
     assert len(su.VALID_GRID_CHARS) == 11
     assert len(su.ROWS) == 9
+    for row in su.ROWS:
+        assert len(row) == 9
     assert len(su.COLUMNS) == 9
+    for column in su.COLUMNS:
+        assert len(column) == 9
     assert len(su.BLOCKS) == 9
+    for block in su.BLOCKS:
+        assert len(block) == 9
     assert len(su.UNITS) == 27
+    for unit in su.UNITS:
+        assert len(unit) == 9
     assert len(su.PEERS) == 81
 
 
@@ -105,6 +113,14 @@ def test_is_valid_empty_grid():
 def test_is_valid_solved_grid():
     grid = '417369825632158947958724316825437169791586432346912758289643571573291684164875293'
     assert su.is_valid(grid)
+
+
+def test_solve_already_solved():
+    grid = '417369825632158947958724316825437169791586432346912758289643571573291684164875293'
+    solution = grid
+    all_solutions = list(su.solve(grid))
+    assert len(all_solutions) == 1
+    assert all_solutions[0] == solution
 
 
 def test_solve_one_solution():

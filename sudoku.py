@@ -19,8 +19,8 @@ ROWS = [range(i, i + 9) for i in range(0, 81, 9)]
 
 COLUMNS = [range(i, i + 81, 9) for i in range(9)]
 
-BLOCKS = [sum([range(i + 9 * x, i + 9 * x + 3) for x in range(3)], [])
-          for i in sum([range(z * 27, z * 27 + 9, 3) for z in range(3)], [])]
+BLOCKS = [sum([range(i + 9*x, i + 9*x + 3) for x in range(3)], [])
+          for i in sum([range(z*27, z*27 + 9, 3) for z in range(3)], [])]
 
 UNITS = ROWS + COLUMNS + BLOCKS
 
@@ -49,7 +49,7 @@ def block_indices(i):
     So if i is 3 its block indices are [3, 4, 5, 12, 13, 14, 21, 22, 23].
     """
     start = 27 * (i // 27) + 3 * ((i % 9) // 3)
-    return sum([range(start + 9 * y, start + 9 * y + 3) for y in range(3)], [])
+    return sum([range(start + 9*y, start + 9*y + 3) for y in range(3)], [])
 
 
 def peer_indices(i):
@@ -90,6 +90,16 @@ def formatted(grid):
     return '\n' + '\n'.join(lines) + '\n'
 
 
+def is_valid(grid):
+    """Return true if grid has no duplicate values within a unit."""
+    grid = normalize(grid)
+    for unit in UNITS:
+        values = [grid[i] for i in unit if grid[i] != '.']
+        if len(values) != len(set(values)):
+            return False
+    return True
+
+
 def normalize(grid):
     """Return 81 character string of digits (with dots for missing values)."""
     normalized = ''.join([c for c in grid if c in VALID_GRID_CHARS])
@@ -99,14 +109,64 @@ def normalize(grid):
     return normalized
 
 
-def is_valid(grid):
-    """Return true if grid has no duplicate values within a unit."""
-    grid = normalize(grid)
-    for unit in UNITS:
-        values = [grid[i] for i in unit if grid[i] != '.']
-        if len(values) != len(set(values)):
-            return False
-    return True
+def possible_values(grid, index):
+    """Return list of available digit values for grid[index]."""
+    return list(DIGITS - set(grid[n] for n in PEERS[index]))
+
+
+def random_grid(min_assigned_squares=17, symmetrical=True):
+    """Return random (grid, solution).
+
+    Assign a min of 17 to max of 80 squares."""
+    min_assigned_squares = max(min_assigned_squares, 17)
+    min_assigned_squares = min(min_assigned_squares, 80)
+    min_unique_digits = 8
+    grid = '.' * 81
+    mirror = list(reversed(range(81)))
+    for i in shuffled(range(81)):
+        if grid[i] != '.':
+            # Already assigned earlier as a mirror for symmetry.
+            continue
+        values = possible_values(grid, i)
+        if not values:
+            break
+        new_value = random.choice(values)
+        grid = replace_value(grid, i, new_value)
+        if symmetrical:
+            # Assign a value to the mirror square as well.
+            other_i = mirror[i]
+            if other_i != i:
+                values = possible_values(grid, other_i)
+                if not values:
+                    break
+                new_value = random.choice(values)
+                grid = replace_value(grid, other_i, new_value)
+        assigned_squares = 81 - grid.count('.')
+        unique_digits = len(set(grid) - {'.'})
+        if (assigned_squares >= min_assigned_squares and
+                unique_digits >= min_unique_digits):
+            # Sudoku requires a grid with one and only one solution.
+            count = 0
+            for count, solution in enumerate(solve(grid)):
+                if count > 1:
+                    break
+            if not count:
+                break
+            return grid, solution
+    # Failed to setup a single-solution grid, so try again.
+    random_grid(min_assigned_squares, symmetrical)
+
+
+def replace_value(grid, index, new_value):
+    """Return grid with grid[index] replaced by new_value."""
+    return grid[:index] + new_value + grid[index+1:]
+
+
+def shuffled(iterable):
+    """Return shuffled copy of iterable as a list."""
+    l = list(iterable)
+    random.shuffle(l)
+    return l
 
 
 def solve(grid):
@@ -125,19 +185,15 @@ def _solve(grid):
         return
     unsolved = []
     for i in [i for i, value in enumerate(grid) if value == '.']:
-        possible_values = DIGITS - set(grid[n] for n in PEERS[i])
-        unsolved.append((len(possible_values), i, possible_values))
-    i, possible_values = min(unsolved)[1:]
-    for value in possible_values:
-        for solution in _solve(grid[:i] + value + grid[i+1:]):
+        values = possible_values(grid, i)
+        if not values:
+            # Grid cannot be solved.
+            return
+        unsolved.append((len(values), i, values))
+    i, values = min(unsolved)[1:]
+    for new_value in values:
+        for solution in _solve(replace_value(grid, i, new_value)):
             yield solution
-
-
-def shuffled(iterable):
-    """Return shuffled copy of iterable as a list."""
-    l = list(iterable)
-    random.shuffle(l)
-    return l
 
 
 class Puzzle(object):
