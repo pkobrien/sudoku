@@ -434,7 +434,7 @@ class Puzzle(object):
             square.solved_value = square.possible_digits[0]
 
 
-class Region(object):
+class Unit(object):
     """Parent class for Row, Column and Box."""
 
     def __init__(self, number):
@@ -446,15 +446,15 @@ class Region(object):
         return '<%s %s>' % (self.__class__.__name__, self.number)
 
 
-class Row(Region):
+class Row(Unit):
     pass
 
 
-class Column(Region):
+class Column(Unit):
     pass
 
 
-class Box(Region):
+class Box(Unit):
     pass
 
 
@@ -518,7 +518,7 @@ class Square(object):
             if not all(peer._eliminate(self.possible_digits[0])
                        for peer in self.peers):
                 return False
-        # Check each region to see if digit can now only appear in
+        # Check each unit to see if digit can now only appear in
         # one place.  If so, assign it to the square in that place.
         for squares in (self.row.squares, self.column.squares,
                         self.box.squares):
