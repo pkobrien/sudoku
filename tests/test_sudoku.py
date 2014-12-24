@@ -13,9 +13,9 @@ def test_module_constants():
     assert len(su.COLUMNS) == 9
     for column in su.COLUMNS:
         assert len(column) == 9
-    assert len(su.BLOCKS) == 9
-    for block in su.BLOCKS:
-        assert len(block) == 9
+    assert len(su.BOXES) == 9
+    for box in su.BOXES:
+        assert len(box) == 9
     assert len(su.UNITS) == 81
     assert len(su.PEERS) == 81
 
@@ -78,10 +78,10 @@ def test_column_indices():
     assert su.column_indices(80) == [8, 17, 26, 35, 44, 53, 62, 71, 80]
 
 
-def test_block_indices():
-    assert su.block_indices(0) == [0, 1, 2, 9, 10, 11, 18, 19, 20]
-    assert su.block_indices(40) == [30, 31, 32, 39, 40, 41, 48, 49, 50]
-    assert su.block_indices(80) == [60, 61, 62, 69, 70, 71, 78, 79, 80]
+def test_box_indices():
+    assert su.box_indices(0) == [0, 1, 2, 9, 10, 11, 18, 19, 20]
+    assert su.box_indices(40) == [30, 31, 32, 39, 40, 41, 48, 49, 50]
+    assert su.box_indices(80) == [60, 61, 62, 69, 70, 71, 78, 79, 80]
 
 
 def test_peer_indices():

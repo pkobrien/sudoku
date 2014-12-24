@@ -26,8 +26,8 @@ ROWS = [range(i, i + 9) for i in range(0, 81, 9)]
 
 COLUMNS = [range(i, i + 81, 9) for i in range(9)]
 
-BLOCKS = [sum([range(i + 9*x, i + 9*x + 3) for x in range(3)], [])
-          for i in sum([range(z*27, z*27 + 9, 3) for z in range(3)], [])]
+BOXES = [sum([range(i + 9*x, i + 9*x + 3) for x in range(3)], [])
+         for i in sum([range(z*27, z*27 + 9, 3) for z in range(3)], [])]
 
 
 def row_indices(i):
@@ -48,10 +48,10 @@ def column_indices(i):
     return range(start, start + 81, 9)
 
 
-def block_indices(i):
-    """Return list of grid index values for squares in the same block as i.
+def box_indices(i):
+    """Return list of grid index values for squares in the same box as i.
 
-    So if i is 3 its block indices are [3, 4, 5, 12, 13, 14, 21, 22, 23].
+    So if i is 3 its box indices are [3, 4, 5, 12, 13, 14, 21, 22, 23].
     """
     start = 27 * (i // 27) + 3 * ((i % 9) // 3)
     return sum([range(start + 9*y, start + 9*y + 3) for y in range(3)], [])
@@ -66,13 +66,13 @@ def peer_indices(i):
     """
     return (set.union(set(row_indices(i)),
                       set(column_indices(i)),
-                      set(block_indices(i))
+                      set(box_indices(i))
                       ) - {i})
 
 
 def unit_indices(i):
-    """Return (row_indices, column_indices, block_indices) for square at i."""
-    return row_indices(i), column_indices(i), block_indices(i)
+    """Return (row_indices, column_indices, box_indices) for square at i."""
+    return row_indices(i), column_indices(i), box_indices(i)
 
 
 PEERS = [peer_indices(i) for i in range(81)]
@@ -112,7 +112,7 @@ def is_valid(grid):
 
     Does not guarantee that grid can be solved."""
     grid = normalize(grid)
-    units = ROWS + COLUMNS + BLOCKS
+    units = ROWS + COLUMNS + BOXES
     for unit in units:
         values = [grid[i] for i in unit if grid[i] != '.']
         if len(values) != len(set(values)):
@@ -300,7 +300,7 @@ class Puzzle(object):
         """Create a Puzzle instance."""
         self.rows = []
         self.columns = []
-        self.blocks = []
+        self.boxes = []
         self.squares = []
         self.mirror = {}
         self.reset()
@@ -309,7 +309,7 @@ class Puzzle(object):
         """Reset the puzzle back to a clean slate."""
         self.rows = []
         self.columns = []
-        self.blocks = []
+        self.boxes = []
         self.squares = []
         self.mirror = {}
         size = range(9)
@@ -317,20 +317,20 @@ class Puzzle(object):
             num = n + 1
             self.rows.append(Row(num))
             self.columns.append(Column(num))
-            self.blocks.append(Block(num))
+            self.boxes.append(Box(num))
         triples = [size[0:3], size[3:6], size[6:9]]
-        block_finder = {}
-        blocking = [(rs, cs) for rs in triples for cs in triples]
-        for nb, (rs, cs) in enumerate(blocking):
-            block_finder.update({(nr, nc): nb for nr in rs for nc in cs})
+        box_finder = {}
+        boxing = [(rs, cs) for rs in triples for cs in triples]
+        for nb, (rs, cs) in enumerate(boxing):
+            box_finder.update({(nr, nc): nb for nr in rs for nc in cs})
         num = 0
         for nr in size:
             row = self.rows[nr]
             for nc in size:
                 column = self.columns[nc]
-                block = self.blocks[block_finder[(nr, nc)]]
+                box = self.boxes[box_finder[(nr, nc)]]
                 num += 1
-                self.squares.append(Square(num, row, column, block))
+                self.squares.append(Square(num, row, column, box))
         self.mirror = dict(zip(self.squares, reversed(self.squares)))
         for square in self.squares:
             square._setup_peers()
@@ -435,7 +435,7 @@ class Puzzle(object):
 
 
 class Region(object):
-    """Parent class for Row, Column and Block."""
+    """Parent class for Row, Column and Box."""
 
     def __init__(self, number):
         self.number = number
@@ -454,23 +454,23 @@ class Column(Region):
     pass
 
 
-class Block(Region):
+class Box(Region):
     pass
 
 
 class Square(object):
     """Square class."""
 
-    def __init__(self, number, row, column, block):
+    def __init__(self, number, row, column, box):
         """Create a Square instance."""
         self.number = number
         self.name = str(number)
         self.row = row
         self.column = column
-        self.block = block
+        self.box = box
         row.squares.append(self)
         column.squares.append(self)
-        block.squares.append(self)
+        box.squares.append(self)
         self.peers = set()
         self.possible_digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
         self._possible_digits_state = ()
@@ -521,7 +521,7 @@ class Square(object):
         # Check each region to see if digit can now only appear in
         # one place.  If so, assign it to the square in that place.
         for squares in (self.row.squares, self.column.squares,
-                        self.block.squares):
+                        self.box.squares):
             places = [square for square in squares
                       if digit in square.possible_digits]
             if len(places) == 0:
@@ -541,7 +541,7 @@ class Square(object):
 
     def _setup_peers(self):
         """Determine the set of squares that are peers of this square."""
-        others = self.row.squares + self.column.squares + self.block.squares
+        others = self.row.squares + self.column.squares + self.box.squares
         self.peers = set(others) - {self}
 
 
