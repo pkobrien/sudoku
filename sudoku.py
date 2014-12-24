@@ -134,11 +134,20 @@ def normalize(grid):
     return normalized
 
 
-def random_grid(min_assigned_squares=17, symmetrical=True):
-    """Return random (grid, solution).
+def random_grid(min_assigned_squares=26, symmetrical=True):
+    """Return a random (grid, solution) pair.
 
-    Assign a minimum of 26 to a maximum of 80 squares.
-    Assigning less than 26 squares takes too long."""
+    Assign a minimum of 17 to a maximum of 80 squares.
+    Assigning less than 26 squares can take a long time."""
+    result = False
+    while not result:
+        # Failed to setup a single-solution grid, so try again.
+        result = _random_grid(min_assigned_squares, symmetrical)
+    return result
+
+
+def _random_grid(min_assigned_squares, symmetrical):
+    """Return a random (grid, solution) pair, or False if failed."""
     min_assigned_squares = max(min_assigned_squares, 17)
     min_assigned_squares = min(min_assigned_squares, 80)
     min_unique_digits = 8
@@ -159,13 +168,13 @@ def random_grid(min_assigned_squares=17, symmetrical=True):
                 if not assign(grid_map, other_i,
                               random.choice(grid_map[other_i])):
                     break
-                assigned_squares.append(i)
+                assigned_squares.append(other_i)
         unique_digits = {grid_map[i] for i in assigned_squares}
         if (len(assigned_squares) >= min_assigned_squares and
                 len(unique_digits) >= min_unique_digits):
             # Sudoku requires a grid with one and only one solution.
             count = 0
-            for solution in solve(to_grid(grid_map)):
+            for solved_grid_map in _solve(grid_map):
                 count += 1
                 if count > 1:
                     break
@@ -174,9 +183,10 @@ def random_grid(min_assigned_squares=17, symmetrical=True):
                 break
             unassigned_squares = set(range(81)) - set(assigned_squares)
             grid = to_grid(grid_map, unassigned_squares)
+            solution = to_grid(solved_grid_map)
             return grid, solution
-    # Failed to setup a single-solution grid, so try again.
-    return random_grid(min_assigned_squares, symmetrical)
+    # Failed to setup a single-solution grid.
+    return False
 
 
 def assign(grid_map, i, digit):
@@ -217,14 +227,6 @@ def eliminate(grid_map, i, digit):
     return grid_map
 
 
-def to_grid(grid_map, unassigned_squares=[]):
-    """Return grid string from a grid_map dictionary."""
-    return ''.join(grid_map[i]
-                   if len(grid_map[i]) == 1
-                   and i not in unassigned_squares else '.'
-                   for i in range(81))
-
-
 def shuffled(iterable):
     """Return shuffled copy of iterable as a list."""
     l = list(iterable)
@@ -258,6 +260,14 @@ def _solve(grid_map):
     for digit in digits:
         for solved_grid_map in _solve(assign(grid_map.copy(), next_i, digit)):
             yield solved_grid_map
+
+
+def to_grid(grid_map, unassigned_squares=[]):
+    """Return grid string from a grid_map dictionary."""
+    return ''.join(grid_map[i]
+                   if len(grid_map[i]) == 1
+                   and i not in unassigned_squares else '.'
+                   for i in range(81))
 
 
 class Puzzle(object):
