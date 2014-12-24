@@ -113,8 +113,32 @@ def test_is_valid_solved_grid():
     assert su.is_valid(grid)
 
 
-def test_random_grid():
+def test_random_grid_17():
+    grid, solution = su.random_grid(17)
+    assert len(grid) == 81
+    assert len(solution) == 81
+
+
+def test_random_grid_20():
+    grid, solution = su.random_grid(20)
+    assert len(grid) == 81
+    assert len(solution) == 81
+
+
+def test_random_grid_40():
     grid, solution = su.random_grid(40)
+    assert len(grid) == 81
+    assert len(solution) == 81
+
+
+def test_random_grid_60():
+    grid, solution = su.random_grid(60)
+    assert len(grid) == 81
+    assert len(solution) == 81
+
+
+def test_random_grid_80():
+    grid, solution = su.random_grid(80)
     assert len(grid) == 81
     assert len(solution) == 81
 

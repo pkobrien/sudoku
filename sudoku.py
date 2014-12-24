@@ -103,10 +103,19 @@ def grid_map_all_digits():
     return {i: string_of_all_digits for i in range(81)}
 
 
+def grid_map_propogated(grid):
+    """Return dictionary of {i: possible_digits} pairs."""
+    grid_map = grid_map_all_digits()
+    for i, digit in enumerate(grid):
+        if digit in DIGITS and not assign(grid_map, i, digit):
+            return False
+    return grid_map
+
+
 def is_valid(grid):
     """Return true if grid has no duplicate values within a unit.
 
-    Does not guarantee that an unsolved grid can be solved."""
+    Does not guarantee that grid can be solved."""
     grid = normalize(grid)
     units = ROWS + COLUMNS + BLOCKS
     for unit in units:
@@ -125,12 +134,12 @@ def normalize(grid):
     return normalized
 
 
-def random_grid(min_assigned_squares=26, symmetrical=True):
+def random_grid(min_assigned_squares=17, symmetrical=True):
     """Return random (grid, solution).
 
     Assign a minimum of 26 to a maximum of 80 squares.
     Assigning less than 26 squares takes too long."""
-    min_assigned_squares = max(min_assigned_squares, 26)
+    min_assigned_squares = max(min_assigned_squares, 17)
     min_assigned_squares = min(min_assigned_squares, 80)
     min_unique_digits = 8
     grid_map = grid_map_all_digits()
@@ -216,11 +225,6 @@ def to_grid(grid_map, unassigned_squares=[]):
                    for i in range(81))
 
 
-def replace_value(grid, i, new_value):
-    """Return grid with grid[i] replaced by new_value."""
-    return grid[:i] + new_value + grid[i+1:]
-
-
 def shuffled(iterable):
     """Return shuffled copy of iterable as a list."""
     l = list(iterable)
@@ -233,31 +237,27 @@ def solve(grid):
     grid = normalize(grid)
     if not is_valid(grid):
         return
-    for solution in _solve(grid):
-        yield solution
-
-
-def _possible_values(grid, index):
-    """Return list of available digit values for grid[index]."""
-    return list(DIGITS - set(grid[n] for n in PEERS[index]))
-
-
-def _solve(grid):
-    """Generate all possible solutions for a solveable grid."""
-    if '.' not in grid:
-        yield grid
+    grid_map = grid_map_propogated(grid)
+    if not grid_map:
+        # Although the grid was valid, it wasn't well-formed.
         return
-    unsolved = []
-    for i in [i for i, value in enumerate(grid) if value == '.']:
-        values = _possible_values(grid, i)
-        if not values:
-            # Grid cannot be solved.
-            return
-        unsolved.append((len(values), i, values))
-    i, values = min(unsolved)[1:]
-    for new_value in values:
-        for solution in _solve(replace_value(grid, i, new_value)):
-            yield solution
+    for solved_grid_map in _solve(grid_map):
+        yield to_grid(solved_grid_map)
+
+
+def _solve(grid_map):
+    """Generate all possible solved versions of grid_map using brute force."""
+    if not grid_map:
+        return
+    if all(len(grid_map[i]) == 1 for i in range(81)):
+        yield grid_map
+        return
+    next_i = min((len(grid_map[i]), i) for i in range(81)
+                 if len(grid_map[i]) > 1)[1]
+    digits = grid_map[next_i]
+    for digit in digits:
+        for solved_grid_map in _solve(assign(grid_map.copy(), next_i, digit)):
+            yield solved_grid_map
 
 
 class Puzzle(object):
