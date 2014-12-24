@@ -13,6 +13,11 @@ import random
 __version__ = '0.8.0'
 
 
+#==============================================================================
+# Module constants (and some helper functions to calculate said constants)
+#==============================================================================
+
+
 DIGITS = {'1', '2', '3', '4', '5', '6', '7', '8', '9'}
 
 VALID_GRID_CHARS = DIGITS.union({'0', '.'})
@@ -75,6 +80,11 @@ PEERS = [peer_indices(i) for i in range(81)]
 UNITS = [unit_indices(i) for i in range(81)]
 
 
+#==============================================================================
+# Public API
+#==============================================================================
+
+
 def display(grid):
     """Print grid in a readable format."""
     print(formatted(grid))
@@ -95,21 +105,6 @@ def formatted(grid):
         if n in (2, 5):
             lines.append(border)
     return '\n' + '\n'.join(lines) + '\n'
-
-
-def grid_map_all_digits():
-    """Return dictionary of {i: string_of_all_digits} pairs."""
-    string_of_all_digits = ''.join(DIGITS)
-    return {i: string_of_all_digits for i in range(81)}
-
-
-def grid_map_propogated(grid):
-    """Return dictionary of {i: possible_digits} pairs."""
-    grid_map = grid_map_all_digits()
-    for i, digit in enumerate(grid):
-        if digit in DIGITS and not assign(grid_map, i, digit):
-            return False
-    return grid_map
 
 
 def is_valid(grid):
@@ -146,27 +141,99 @@ def random_grid(min_assigned_squares=26, symmetrical=True):
     return result
 
 
+def solve(grid):
+    """Generate all possible solutions for a solveable grid."""
+    grid = normalize(grid)
+    if not is_valid(grid):
+        # We can't solve an invalid grid.
+        return
+    grid_map = _grid_map_propogated(grid)
+    if not grid_map:
+        # Although the grid was valid, it wasn't well-formed.
+        return
+    for solved_grid_map in _solve(grid_map):
+        yield _to_grid(solved_grid_map)
+
+
+#==============================================================================
+# Private API
+#==============================================================================
+
+
+def _assign(grid_map, i, digit):
+    """Assign digit to grid_map[i] and eliminate from peers."""
+    digits_to_eliminate = grid_map[i].replace(digit, '')
+    if all(_eliminate(grid_map, i, d2) for d2 in digits_to_eliminate):
+        return grid_map
+    else:
+        return False
+
+
+def _eliminate(grid_map, i, digit):
+    """Eliminate digit from possible digits for square at grid_map[i]."""
+    possible_digits = grid_map[i]
+    if digit not in possible_digits:
+        return grid_map
+    possible_digits = possible_digits.replace(digit, '')
+    grid_map[i] = possible_digits
+    if len(possible_digits) == 0:
+        # We just eliminated the only possible digit for the square.
+        # That means we don't have a well-formed grid.
+        return False
+    elif len(possible_digits) == 1:
+        # This square is now the only square that can have this digit
+        # so eliminate this digit from all of the square's peers.
+        if not all(_eliminate(grid_map, peer, possible_digits)
+                   for peer in PEERS[i]):
+            return False
+    for unit in UNITS[i]:
+        # Check each of the square's units to see if there is now
+        # only one place where this digit can be assigned and do it.
+        places = [i2 for i2 in unit if digit in grid_map[i2]]
+        if len(places) == 0:
+            return False
+        elif len(places) == 1:
+            if not _assign(grid_map, places[0], digit):
+                return False
+    return grid_map
+
+
+def _grid_map_all_digits():
+    """Return dictionary of {i: string_of_all_digits} pairs."""
+    string_of_all_digits = ''.join(DIGITS)
+    return {i: string_of_all_digits for i in range(81)}
+
+
+def _grid_map_propogated(grid):
+    """Return dictionary of {i: possible_digits} pairs."""
+    grid_map = _grid_map_all_digits()
+    for i, digit in enumerate(grid):
+        if digit in DIGITS and not _assign(grid_map, i, digit):
+            return False
+    return grid_map
+
+
 def _random_grid(min_assigned_squares, symmetrical):
     """Return a random (grid, solution) pair, or False if failed."""
     min_assigned_squares = max(min_assigned_squares, 17)
     min_assigned_squares = min(min_assigned_squares, 80)
     min_unique_digits = 8
-    grid_map = grid_map_all_digits()
+    grid_map = _grid_map_all_digits()
     mirror = list(reversed(range(81)))
     assigned_squares = []
-    for i in shuffled(range(81)):
+    for i in _shuffled(range(81)):
         if i in assigned_squares:
             # Already assigned earlier as a mirror for symmetry.
             continue
-        if not assign(grid_map, i, random.choice(grid_map[i])):
+        if not _assign(grid_map, i, random.choice(grid_map[i])):
             break
         assigned_squares.append(i)
         if symmetrical:
             # Assign a value to the mirror square as well.
             other_i = mirror[i]
             if other_i != i:
-                if not assign(grid_map, other_i,
-                              random.choice(grid_map[other_i])):
+                if not _assign(grid_map, other_i,
+                               random.choice(grid_map[other_i])):
                     break
                 assigned_squares.append(other_i)
         unique_digits = {grid_map[i] for i in assigned_squares}
@@ -182,69 +249,18 @@ def _random_grid(min_assigned_squares, symmetrical):
                 # No solution or more than one solution.
                 break
             unassigned_squares = set(range(81)) - set(assigned_squares)
-            grid = to_grid(grid_map, unassigned_squares)
-            solution = to_grid(solved_grid_map)
+            grid = _to_grid(grid_map, unassigned_squares)
+            solution = _to_grid(solved_grid_map)
             return grid, solution
     # Failed to setup a single-solution grid.
     return False
 
 
-def assign(grid_map, i, digit):
-    """Assign digit to grid_map[i] and eliminate from peers."""
-    digits_to_eliminate = grid_map[i].replace(digit, '')
-    if all(eliminate(grid_map, i, d2) for d2 in digits_to_eliminate):
-        return grid_map
-    else:
-        return False
-
-
-def eliminate(grid_map, i, digit):
-    """Eliminate digit from possible digits for square at grid_map[i]."""
-    possible_digits = grid_map[i]
-    if digit not in possible_digits:
-        return grid_map
-    possible_digits = possible_digits.replace(digit, '')
-    grid_map[i] = possible_digits
-    if len(possible_digits) == 0:
-        # We just eliminated the only possible digit for the square.
-        # That means we don't have a well-formed grid.
-        return False
-    elif len(possible_digits) == 1:
-        # This square is now the only square that can have this digit
-        # so eliminate this digit from all of the square's peers.
-        if not all(eliminate(grid_map, peer, possible_digits)
-                   for peer in PEERS[i]):
-            return False
-    for unit in UNITS[i]:
-        # Check each of the square's units to see if there is now
-        # only one place where this digit can be assigned and do it.
-        places = [i2 for i2 in unit if digit in grid_map[i2]]
-        if len(places) == 0:
-            return False
-        elif len(places) == 1:
-            if not assign(grid_map, places[0], digit):
-                return False
-    return grid_map
-
-
-def shuffled(iterable):
+def _shuffled(iterable):
     """Return shuffled copy of iterable as a list."""
     l = list(iterable)
     random.shuffle(l)
     return l
-
-
-def solve(grid):
-    """Generate all possible solutions for a solveable grid."""
-    grid = normalize(grid)
-    if not is_valid(grid):
-        return
-    grid_map = grid_map_propogated(grid)
-    if not grid_map:
-        # Although the grid was valid, it wasn't well-formed.
-        return
-    for solved_grid_map in _solve(grid_map):
-        yield to_grid(solved_grid_map)
 
 
 def _solve(grid_map):
@@ -258,16 +274,23 @@ def _solve(grid_map):
                  if len(grid_map[i]) > 1)[1]
     digits = grid_map[next_i]
     for digit in digits:
-        for solved_grid_map in _solve(assign(grid_map.copy(), next_i, digit)):
+        for solved_grid_map in _solve(_assign(grid_map.copy(), next_i, digit)):
             yield solved_grid_map
 
 
-def to_grid(grid_map, unassigned_squares=[]):
-    """Return grid string from a grid_map dictionary."""
+def _to_grid(grid_map, unassigned_squares=[]):
+    """Return grid string for a grid_map dictionary.
+
+    Use a dot for an unassigned square, rather than its propogated value."""
     return ''.join(grid_map[i]
                    if len(grid_map[i]) == 1
                    and i not in unassigned_squares else '.'
                    for i in range(81))
+
+
+#==============================================================================
+# And now for something completely different: Python Classes
+#==============================================================================
 
 
 class Puzzle(object):
@@ -357,7 +380,7 @@ class Puzzle(object):
         min_assigned_squares = max(min_assigned_squares, 26)
         min_assigned_squares = min(min_assigned_squares, 80)
         min_unique_digits = 8
-        for square in shuffled(self.squares):
+        for square in _shuffled(self.squares):
             if square.was_assigned:
                 # Already assigned as a mirror for symmetry.
                 continue
