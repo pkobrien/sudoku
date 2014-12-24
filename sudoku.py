@@ -4,6 +4,8 @@
 
 An object-oriented treatment of Peter Norvig's paper and
 function-based code from http://norvig.com/sudoku.html.
+
+And then I added functions back, but with improvements.
 """
 
 import random
@@ -178,17 +180,25 @@ def assign(grid_map, i, digit):
 
 
 def eliminate(grid_map, i, digit):
-    """Eliminate digit from potential digits for square at grid_map[i]."""
-    if digit not in grid_map[i]:
+    """Eliminate digit from possible digits for square at grid_map[i]."""
+    possible_digits = grid_map[i]
+    if digit not in possible_digits:
         return grid_map
-    grid_map[i] = grid_map[i].replace(digit, '')
-    d2 = grid_map[i]
-    if len(d2) == 0:
+    possible_digits = possible_digits.replace(digit, '')
+    grid_map[i] = possible_digits
+    if len(possible_digits) == 0:
+        # We just eliminated the only possible digit for the square.
+        # That means we don't have a well-formed grid.
         return False
-    elif len(d2) == 1:
-        if not all(eliminate(grid_map, peer, d2) for peer in PEERS[i]):
+    elif len(possible_digits) == 1:
+        # This square is now the only square that can have this digit
+        # so eliminate this digit from all of the square's peers.
+        if not all(eliminate(grid_map, peer, possible_digits)
+                   for peer in PEERS[i]):
             return False
     for unit in UNITS[i]:
+        # Check each of the square's units to see if there is now
+        # only one place where this digit can be assigned and do it.
         places = [i2 for i2 in unit if digit in grid_map[i2]]
         if len(places) == 0:
             return False
