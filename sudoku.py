@@ -401,53 +401,32 @@ class Puzzle(object):
             if (len(self.assigned_squares) >= min_assigned_squares and
                     len(self.assigned_digits) >= min_unique_digits):
                 # Sudoku requires a grid with one and only one solution.
-                if not self._attempt_brute_force():
+                solution = self._attempt_brute_force()
+                if not solution:
                     break
-#                if not self.is_solved:
-#                    break
-                self._update_squares()
+                self._update_squares(solution)
                 return True
         # Failed to setup a single-solution grid.
-        print 'f',
         return False
 
     def _attempt_brute_force(self):
+        """Solve the remainder of the puzzle, if possible."""
         count = 0
-        for result in self._solve(True):
+        grid_map = _grid_map_propogated(self.current_grid)
+        for solved_grid_map in _solve(grid_map):
             count += 1
             if count > 1:
                 break
         if not count == 1:
             # No solution or more than one solution.
             return False
-        return True
+        return _to_grid(solved_grid_map)
 
-    def _solve(self, result):
-        if not result:
-            return
-        if self.is_solved:
-            yield True
-            return
-        square = min((len(square.possible_digits), square)
-                     for square in self.squares
-                     if len(square.possible_digits) > 1)[1]
-        for digit in square.possible_digits:
-            for result in self._solve(square._apply(digit, backtrack=True)):
-                yield result
-
-    def _save_possible_digits(self):
-        """Save the state of possible digits to support backtracking."""
-        for square in self.squares:
-            square._save_possible_digits()
-
-    def _restore_possible_digits(self):
-        """Restore possible digits from an earlier saved state."""
-        for square in self.squares:
-            square._restore_possible_digits()
-
-    def _update_squares(self):
-        for square in self.squares:
-            square.solved_value = square.possible_digits[0]
+    def _update_squares(self, solution_grid):
+        """Update squares using a solution grid."""
+        for i, square in enumerate(self.squares):
+            square.solved_value = solution_grid[i]
+            # TODO square.possible_digits[0] = list(DIGITS)
 
 
 class Unit(object):
@@ -490,7 +469,6 @@ class Square(object):
         box.squares.append(self)
         self.peers = set()
         self.possible_digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
-        self._possible_digits_state = ()
         self.current_value = None
         self.solved_value = None
         self.was_assigned = False
@@ -515,19 +493,13 @@ class Square(object):
         """Assign random digit from possible digits for the square."""
         return self._assign(random.choice(self.possible_digits))
 
-    def _apply(self, digit, backtrack=False):
+    def _apply(self, digit):
         """Apply digit to square by eliminating all other digits."""
         digits_to_eliminate = [other for other in self.possible_digits
                                if other != digit]
-        if backtrack:
-            self.puzzle._save_possible_digits()
         if all(self._eliminate(other) for other in digits_to_eliminate):
-            if backtrack:
-                self.puzzle._save_possible_digits()
             return True
         else:
-            if backtrack:
-                self.puzzle._restore_possible_digits()
             return False
 
     def _eliminate(self, digit):
@@ -553,14 +525,6 @@ class Square(object):
                 if not places[0]._apply(digit):
                     return False
         return True
-
-    def _save_possible_digits(self):
-        """Save the state of possible digits to support backtracking."""
-        self._possible_digits_state = tuple(self.possible_digits)
-
-    def _restore_possible_digits(self):
-        """Restore possible digits from an earlier saved state."""
-        self.possible_digits = list(self._possible_digits_state)
 
     def _setup_peers(self):
         """Determine the set of squares that are peers of this square."""
