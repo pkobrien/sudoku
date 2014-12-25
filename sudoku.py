@@ -272,8 +272,8 @@ def _solve(grid_map):
         return
     next_i = min((len(grid_map[i]), i) for i in range(81)
                  if len(grid_map[i]) > 1)[1]
-    digits = grid_map[next_i]
-    for digit in digits:
+    possible_digits = grid_map[next_i]
+    for digit in possible_digits:
         for solved_grid_map in _solve(_assign(grid_map.copy(), next_i, digit)):
             yield solved_grid_map
 
@@ -330,7 +330,7 @@ class Puzzle(object):
                 column = self.columns[nc]
                 box = self.boxes[box_finder[(nr, nc)]]
                 num += 1
-                self.squares.append(Square(num, row, column, box))
+                self.squares.append(Square(num, self, row, column, box))
         self.mirror = dict(zip(self.squares, reversed(self.squares)))
         for square in self.squares:
             square._setup_peers()
@@ -375,7 +375,14 @@ class Puzzle(object):
     def setup_random_grid(self, min_assigned_squares=26, symmetrical=True):
         """Setup random grid with a min of 26 to a max of 80 squares assigned.
 
-        Processing a grid with less than 26 squares assigned takes too long."""
+        Processing less than 26 assigned squares can take a long time."""
+        result = False
+        while not result:
+            # Failed to setup a single-solution grid, so try again.
+            result = self._setup_random_grid(min_assigned_squares, symmetrical)
+
+    def _setup_random_grid(self, min_assigned_squares, symmetrical):
+        """Setup a random grid."""
         self.reset()
         min_assigned_squares = max(min_assigned_squares, 26)
         min_assigned_squares = min(min_assigned_squares, 80)
@@ -393,31 +400,40 @@ class Puzzle(object):
                         break
             if (len(self.assigned_squares) >= min_assigned_squares and
                     len(self.assigned_digits) >= min_unique_digits):
-                self._attempt_brute_force(True)
-                if self.is_solved:
-                    self._update_squares()
-                    return
-                else:
+                # Sudoku requires a grid with one and only one solution.
+                if not self._attempt_brute_force():
                     break
-        # Failed to setup a solveable grid so try again.
-        self.setup_random_grid(min_assigned_squares, symmetrical)
+#                if not self.is_solved:
+#                    break
+                self._update_squares()
+                return True
+        # Failed to setup a single-solution grid.
+        print 'f',
+        return False
 
-    def _attempt_brute_force(self, result):
-        if result is False:
+    def _attempt_brute_force(self):
+        count = 0
+        for result in self._solve(True):
+            count += 1
+            if count > 1:
+                break
+        if not count == 1:
+            # No solution or more than one solution.
             return False
+        return True
+
+    def _solve(self, result):
+        if not result:
+            return
         if self.is_solved:
-            return True
+            yield True
+            return
         square = min((len(square.possible_digits), square)
                      for square in self.squares
                      if len(square.possible_digits) > 1)[1]
         for digit in square.possible_digits:
-            self._save_possible_digits()
-            result = self._attempt_brute_force(square._apply(digit))
-            if not result:
-                self._restore_possible_digits()
-            else:
-                break
-        return result
+            for result in self._solve(square._apply(digit, backtrack=True)):
+                yield result
 
     def _save_possible_digits(self):
         """Save the state of possible digits to support backtracking."""
@@ -461,10 +477,11 @@ class Box(Unit):
 class Square(object):
     """Square class."""
 
-    def __init__(self, number, row, column, box):
+    def __init__(self, number, puzzle, row, column, box):
         """Create a Square instance."""
         self.number = number
         self.name = str(number)
+        self.puzzle = puzzle
         self.row = row
         self.column = column
         self.box = box
@@ -498,13 +515,19 @@ class Square(object):
         """Assign random digit from possible digits for the square."""
         return self._assign(random.choice(self.possible_digits))
 
-    def _apply(self, digit):
+    def _apply(self, digit, backtrack=False):
         """Apply digit to square by eliminating all other digits."""
         digits_to_eliminate = [other for other in self.possible_digits
                                if other != digit]
+        if backtrack:
+            self.puzzle._save_possible_digits()
         if all(self._eliminate(other) for other in digits_to_eliminate):
+            if backtrack:
+                self.puzzle._save_possible_digits()
             return True
         else:
+            if backtrack:
+                self.puzzle._restore_possible_digits()
             return False
 
     def _eliminate(self, digit):

@@ -233,10 +233,49 @@ def test_solve_hard_grid_3():
     assert all_solutions[0] == solution
 
 
-def test_Puzzle_setup_random_grid():
+def test_Puzzle_setup_random_grid_30():
     p = su.Puzzle()
-    p.setup_random_grid()
+    p.setup_random_grid(30)
     assert p.is_solved
     assert len(p.assigned_grid) == 81
     assert len(p.current_grid) == 81
     assert len(p.solved_grid) == 81
+    all_solutions = list(su.solve(p.assigned_grid))
+    assert len(all_solutions) == 1
+    assert all_solutions[0] == p.solved_grid
+
+
+def test_Puzzle_setup_random_grid_40():
+    p = su.Puzzle()
+    p.setup_random_grid(40)
+    assert p.is_solved
+    assert len(p.assigned_grid) == 81
+    assert len(p.current_grid) == 81
+    assert len(p.solved_grid) == 81
+    all_solutions = list(su.solve(p.assigned_grid))
+    assert len(all_solutions) == 1
+    assert all_solutions[0] == p.solved_grid
+
+
+def test_Puzzle_setup_random_grid_60():
+    p = su.Puzzle()
+    p.setup_random_grid(60)
+    assert p.is_solved
+    assert len(p.assigned_grid) == 81
+    assert len(p.current_grid) == 81
+    assert len(p.solved_grid) == 81
+    all_solutions = list(su.solve(p.assigned_grid))
+    assert len(all_solutions) == 1
+    assert all_solutions[0] == p.solved_grid
+
+
+def test_Puzzle_setup_random_grid_80():
+    p = su.Puzzle()
+    p.setup_random_grid(80)
+    assert p.is_solved
+    assert len(p.assigned_grid) == 81
+    assert len(p.current_grid) == 81
+    assert len(p.solved_grid) == 81
+    all_solutions = list(su.solve(p.assigned_grid))
+    assert len(all_solutions) == 1
+    assert all_solutions[0] == p.solved_grid
