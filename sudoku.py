@@ -10,7 +10,7 @@ And then I added functions back, but with improvements.
 
 import random
 
-__version__ = '0.8.0'
+__version__ = '0.9.0'
 
 
 #==============================================================================
@@ -26,8 +26,8 @@ ROWS = [range(i, i + 9) for i in range(0, 81, 9)]
 
 COLUMNS = [range(i, i + 81, 9) for i in range(9)]
 
-BOXES = [sum([range(i + 9*x, i + 9*x + 3) for x in range(3)], [])
-         for i in sum([range(z*27, z*27 + 9, 3) for z in range(3)], [])]
+BOXES = [sum([list(range(i + 9*x, i + 9*x + 3)) for x in range(3)], [])
+         for i in sum([list(range(z*27, z*27 + 9, 3)) for z in range(3)], [])]
 
 
 def row_indices(i):
@@ -36,7 +36,7 @@ def row_indices(i):
     So if i is 3 its row indices are [0, 1, 2, 3, 4, 5, 6, 7, 8].
     """
     start = i - i % 9
-    return range(start, start + 9)
+    return list(range(start, start + 9))
 
 
 def column_indices(i):
@@ -45,7 +45,7 @@ def column_indices(i):
     So if i is 3 its column indices are [3, 12, 21, 30, 39, 48, 57, 66, 75].
     """
     start = i % 9
-    return range(start, start + 81, 9)
+    return list(range(start, start + 81, 9))
 
 
 def box_indices(i):
@@ -54,7 +54,8 @@ def box_indices(i):
     So if i is 3 its box indices are [3, 4, 5, 12, 13, 14, 21, 22, 23].
     """
     start = 27 * (i // 27) + 3 * ((i % 9) // 3)
-    return sum([range(start + 9*y, start + 9*y + 3) for y in range(3)], [])
+    return sum([list(range(start + 9*y, start + 9*y + 3)) 
+               for y in range(3)], [])
 
 
 def peer_indices(i):
