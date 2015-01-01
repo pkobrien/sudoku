@@ -2,15 +2,20 @@
 """
 @author: Patrick K. O'Brien
 
+Hosted at https://github.com/pkobrien/sudoku
+
 An object-oriented treatment of Peter Norvig's paper and
 function-based code from http://norvig.com/sudoku.html.
 
 And then I added functions back, but with improvements.
+
+And then the classes became all about supporting GUIs, such as
+the PyQt one at: https://github.com/pkobrien/pyqtsudoku
 """
 
 import random
 
-__version__ = '0.9.0'
+__version__ = '1.0.0'
 
 
 #==============================================================================
