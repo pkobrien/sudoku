@@ -373,11 +373,12 @@ class Puzzle(object):
         """Return True if all squares have been solved."""
         return all(square.is_solved for square in self.squares)
 
-    def setup_random_grid(self, min_assigned_squares=26, symmetrical=True):
+    def setup_random_grid(self, min_assigned_squares=40, symmetrical=True):
         """Setup random grid with a min of 26 to a max of 80 squares assigned.
 
         Processing less than 26 assigned squares can take a long time."""
         self.reset()
+        min_assigned_squares = max(min_assigned_squares, 26)
         grid, solution = random_grid(min_assigned_squares, symmetrical)
         for i, square in enumerate(self.squares):
             square.solved_value = solution[i]
@@ -442,6 +443,9 @@ class Square(object):
 
     def update(self, digit):
         """Update square with the value of digit."""
+        if self.was_assigned:
+            raise SquareUpdateError(
+                'Cannot update a square whose value was asssigned')
         if digit:
             self.current_value = digit
         else:
@@ -452,8 +456,8 @@ class Square(object):
 
     def _assign(self, digit):
         """Assign digit to square."""
-        self.was_assigned = True
         self.update(digit)
+        self.was_assigned = True
 
     def _assign_random_digit(self):
         """Assign random digit from possible digits for the square."""
@@ -471,3 +475,8 @@ class Square(object):
         else:
             self.possible_digits = sorted(
                 DIGITS - {peer.current_value for peer in self.peers})
+
+
+class SquareUpdateError(Exception):
+    """Cannot update a square whose value was assigned."""
+    pass
