@@ -304,6 +304,12 @@ class Puzzle(object):
         self.boxes = []
         self.squares = []
         self.mirror = {}
+        self.box_finder = {}
+        self.size = range(9)
+        triples = [self.size[0:3], self.size[3:6], self.size[6:9]]
+        boxing = [(rs, cs) for rs in triples for cs in triples]
+        for nb, (rs, cs) in enumerate(boxing):
+            self.box_finder.update({(nr, nc): nb for nr in rs for nc in cs})
         self.reset()
 
     def reset(self):
@@ -313,23 +319,17 @@ class Puzzle(object):
         self.boxes = []
         self.squares = []
         self.mirror = {}
-        size = range(9)
-        for n in size:
+        for n in self.size:
             num = n + 1
             self.rows.append(Row(num))
             self.columns.append(Column(num))
             self.boxes.append(Box(num))
-        triples = [size[0:3], size[3:6], size[6:9]]
-        box_finder = {}
-        boxing = [(rs, cs) for rs in triples for cs in triples]
-        for nb, (rs, cs) in enumerate(boxing):
-            box_finder.update({(nr, nc): nb for nr in rs for nc in cs})
         num = 0
-        for nr in size:
+        for nr in self.size:
             row = self.rows[nr]
-            for nc in size:
+            for nc in self.size:
                 column = self.columns[nc]
-                box = self.boxes[box_finder[(nr, nc)]]
+                box = self.boxes[self.box_finder[(nr, nc)]]
                 num += 1
                 self.squares.append(Square(num, self, row, column, box))
         self.mirror = dict(zip(self.squares, reversed(self.squares)))
@@ -377,57 +377,12 @@ class Puzzle(object):
         """Setup random grid with a min of 26 to a max of 80 squares assigned.
 
         Processing less than 26 assigned squares can take a long time."""
-        result = False
-        while not result:
-            # Failed to setup a single-solution grid, so try again.
-            result = self._setup_random_grid(min_assigned_squares, symmetrical)
-
-    def _setup_random_grid(self, min_assigned_squares, symmetrical):
-        """Setup a random grid."""
         self.reset()
-        min_assigned_squares = max(min_assigned_squares, 26)
-        min_assigned_squares = min(min_assigned_squares, 80)
-        min_unique_digits = 8
-        for square in _shuffled(self.squares):
-            if square.was_assigned:
-                # Already assigned as a mirror for symmetry.
-                continue
-            if not square._assign_random_digit():
-                break
-            if symmetrical:
-                other = self.mirror[square]
-                if other is not square:
-                    if not other._assign_random_digit():
-                        break
-            if (len(self.assigned_squares) >= min_assigned_squares and
-                    len(self.assigned_digits) >= min_unique_digits):
-                # Sudoku requires a grid with one and only one solution.
-                solution = self._attempt_brute_force()
-                if not solution:
-                    break
-                self._update_squares(solution)
-                return True
-        # Failed to setup a single-solution grid.
-        return False
-
-    def _attempt_brute_force(self):
-        """Solve the remainder of the puzzle, if possible."""
-        count = 0
-        grid_map = _grid_map_propogated(self.current_grid)
-        for solved_grid_map in _solve(grid_map):
-            count += 1
-            if count > 1:
-                break
-        if not count == 1:
-            # No solution or more than one solution.
-            return False
-        return _to_grid(solved_grid_map)
-
-    def _update_squares(self, solution_grid):
-        """Update squares using a solution grid."""
+        grid, solution = random_grid(min_assigned_squares, symmetrical)
         for i, square in enumerate(self.squares):
-            square.solved_value = solution_grid[i]
-            # TODO square.possible_digits[0] = list(DIGITS)
+            square.solved_value = solution[i]
+            if grid[i] != '.':
+                square._assign(grid[i])
 
 
 class Unit(object):
@@ -482,63 +437,37 @@ class Square(object):
     @property
     def is_solved(self):
         """Return True if square has been solved."""
-        return len(self.possible_digits) == 1
+        return (self.current_value == self.solved_value and
+                self.solved_value is not None)
+
+    def update(self, digit):
+        """Update square with the value of digit."""
+        if digit:
+            self.current_value = digit
+        else:
+            self.current_value = None
+        self._update_possible_digits()
+        for peer in self.peers:
+            peer._update_possible_digits()
 
     def _assign(self, digit):
-        """Assign digit to square. Return False if conflict detected."""
-        self.current_value = digit
+        """Assign digit to square."""
         self.was_assigned = True
-        return self._apply(digit)
+        self.update(digit)
 
     def _assign_random_digit(self):
         """Assign random digit from possible digits for the square."""
-        return self._assign(random.choice(self.possible_digits))
-
-    def _apply(self, digit):
-        """Apply digit to square by eliminating all other digits."""
-        digits_to_eliminate = [other for other in self.possible_digits
-                               if other != digit]
-        if all(self._eliminate(other) for other in digits_to_eliminate):
-            return True
-        else:
-            return False
-
-    def _eliminate(self, digit):
-        """Eliminate digit from possible digits for square."""
-        if digit not in self.possible_digits:
-            return True
-        self.possible_digits.remove(digit)
-        if len(self.possible_digits) == 0:
-            return False
-        elif len(self.possible_digits) == 1:
-            if not all(peer._eliminate(self.possible_digits[0])
-                       for peer in self.peers):
-                return False
-        # Check each unit to see if digit can now only appear in
-        # one place.  If so, assign it to the square in that place.
-        for squares in (self.row.squares, self.column.squares,
-                        self.box.squares):
-            places = [square for square in squares
-                      if digit in square.possible_digits]
-            if len(places) == 0:
-                return False
-            elif len(places) == 1:
-                if not places[0]._apply(digit):
-                    return False
-        return True
+        self._assign(random.choice(self.possible_digits))
 
     def _setup_peers(self):
         """Determine the set of squares that are peers of this square."""
         others = self.row.squares + self.column.squares + self.box.squares
         self.peers = set(others) - {self}
 
-
-class Game(object):
-    """Game class."""
-    # .player, .puzzle, start(), stop()
-    pass
-
-
-class Player(object):
-    """Player class."""
-    pass
+    def _update_possible_digits(self):
+        """Recalculate the possible digits for this square."""
+        if self.current_value:
+            self.possible_digits = [self.current_value]
+        else:
+            self.possible_digits = sorted(
+                DIGITS - {peer.current_value for peer in self.peers})
