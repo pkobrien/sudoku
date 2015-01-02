@@ -10,7 +10,7 @@ function-based code from http://norvig.com/sudoku.html.
 And then I added functions back, but with improvements.
 
 And then the classes became all about supporting GUIs, such as
-the PyQt one at: https://github.com/pkobrien/pyqtsudoku
+the PyQt one at: https://github.com/pkobrien/pyqt-sudoku
 """
 
 import random
