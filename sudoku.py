@@ -415,6 +415,26 @@ class Box(Unit):
     pass
 
 
+class Signal(object):
+    """Notifies connected slots when emit() is called."""
+
+    def __init__(self):
+        self._slots = set()
+
+    def emit(self, *args, **kwargs):
+        """Call all connected slots."""
+        for slot in self._slots:
+            slot(*args, **kwargs)
+
+    def connect(self, slot):
+        """Add slot to set of connected slots."""
+        self._slots.add(slot)
+
+    def disconnect(self, slot):
+        """Remove slot from set of connected slots, if it is a member."""
+        self._slots.discard(slot)
+
+
 class Square(object):
     """Square class."""
 
@@ -434,6 +454,9 @@ class Square(object):
         self.current_value = None
         self.solved_value = None
         self.was_assigned = False
+        self.possible_digits_changed = Signal()
+        self.value_assigned = Signal()
+        self.value_changed = Signal()
 
     def __repr__(self):
         return '<Square %s @ Row:%s Col:%s Digit(s):%s>' % (
@@ -451,6 +474,21 @@ class Square(object):
         if self.was_assigned:
             raise SquareUpdateError(
                 'Cannot update a square whose value was asssigned')
+        self._update(digit)
+        self.value_changed.emit()
+
+    def _assign(self, digit):
+        """Assign digit to square."""
+        self._update(digit)
+        self.was_assigned = True
+        self.value_assigned.emit()
+
+    def _assign_random_digit(self):
+        """Assign random digit from possible digits for the square."""
+        self._assign(random.choice(self.possible_digits))
+
+    def _update(self, digit):
+        """Update square with the value of digit."""
         if digit:
             self.current_value = digit
         else:
@@ -458,15 +496,6 @@ class Square(object):
         self._update_possible_digits()
         for peer in self.peers:
             peer._update_possible_digits()
-
-    def _assign(self, digit):
-        """Assign digit to square."""
-        self.update(digit)
-        self.was_assigned = True
-
-    def _assign_random_digit(self):
-        """Assign random digit from possible digits for the square."""
-        self._assign(random.choice(self.possible_digits))
 
     def _reset(self):
         """Reset the square back to a clean slate."""
@@ -487,6 +516,7 @@ class Square(object):
         else:
             self.possible_digits = sorted(
                 DIGITS - {peer.current_value for peer in self.peers})
+        self.possible_digits_changed.emit()
 
 
 class SquareUpdateError(Exception):
