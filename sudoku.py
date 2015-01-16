@@ -304,35 +304,30 @@ class Puzzle(object):
 
     def __init__(self):
         """Create a Puzzle instance."""
-        self.rows = []
-        self.columns = []
         self.boxes = []
+        self.columns = []
+        self.rows = []
         self.squares = []
         self.mirror = {}
         self.box_finder = {}
-        self.size = range(9)
-        triples = [self.size[0:3], self.size[3:6], self.size[6:9]]
+        self._setup()
+
+    def _setup(self):
+        """Setup all the puzzle pieces."""
+        sizer = range(9)
+        triples = [sizer[0:3], sizer[3:6], sizer[6:9]]
         boxing = [(rs, cs) for rs in triples for cs in triples]
         for nb, (rs, cs) in enumerate(boxing):
             self.box_finder.update({(nr, nc): nb for nr in rs for nc in cs})
-        self.reset()
-
-    def reset(self):
-        """Reset the puzzle back to a clean slate."""
-        self.rows = []
-        self.columns = []
-        self.boxes = []
-        self.squares = []
-        self.mirror = {}
-        for n in self.size:
+        for n in sizer:
             num = n + 1
             self.rows.append(Row(num))
             self.columns.append(Column(num))
             self.boxes.append(Box(num))
         num = 0
-        for nr in self.size:
+        for nr in sizer:
             row = self.rows[nr]
-            for nc in self.size:
+            for nc in sizer:
                 column = self.columns[nc]
                 box = self.boxes[self.box_finder[(nr, nc)]]
                 num += 1
@@ -377,6 +372,11 @@ class Puzzle(object):
     def is_solved(self):
         """Return True if all squares have been solved."""
         return all(square.is_solved for square in self.squares)
+
+    def reset(self):
+        """Reset the puzzle back to a clean slate."""
+        for square in self.squares:
+            square._reset()
 
     def setup_random_grid(self, min_assigned_squares=40, symmetrical=True):
         """Setup random grid with a min of 26 to a max of 80 squares assigned.
@@ -467,6 +467,13 @@ class Square(object):
     def _assign_random_digit(self):
         """Assign random digit from possible digits for the square."""
         self._assign(random.choice(self.possible_digits))
+
+    def _reset(self):
+        """Reset the square back to a clean slate."""
+        self.possible_digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+        self.current_value = None
+        self.solved_value = None
+        self.was_assigned = False
 
     def _setup_peers(self):
         """Determine the set of squares that are peers of this square."""
