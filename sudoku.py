@@ -455,8 +455,6 @@ class Square(object):
         self.solved_value = None
         self.was_assigned = False
         self.possible_digits_changed = Signal()
-        self.value_assigned = Signal()
-        self.value_changed = Signal()
 
     def __repr__(self):
         return '<Square %s @ Row:%s Col:%s Digit(s):%s>' % (
@@ -475,13 +473,11 @@ class Square(object):
             raise SquareUpdateError(
                 'Cannot update a square whose value was asssigned')
         self._update(digit)
-        self.value_changed.emit()
 
     def _assign(self, digit):
         """Assign digit to square."""
         self._update(digit)
         self.was_assigned = True
-        self.value_assigned.emit()
 
     def _assign_random_digit(self):
         """Assign random digit from possible digits for the square."""
