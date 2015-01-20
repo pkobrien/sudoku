@@ -10,7 +10,7 @@ function-based code from http://norvig.com/sudoku.html.
 And then I added functions back, but with improvements.
 
 And then the classes became all about supporting GUIs, such as
-the PyQt one at: https://github.com/pkobrien/pyqt-sudoku
+the PyQt QML one at: https://github.com/pkobrien/qml-sudoku
 """
 
 import random
@@ -450,7 +450,7 @@ class Square(object):
         column.squares.append(self)
         box.squares.append(self)
         self.peers = set()
-        self.possible_digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+        self.possible_digits = DIGITS
         self.current_value = None
         self.solved_value = None
         self.was_assigned = False
@@ -499,7 +499,7 @@ class Square(object):
 
     def _reset(self):
         """Reset the square back to a clean slate."""
-        self.possible_digits = ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+        self.possible_digits = DIGITS
         self.current_value = None
         self.solved_value = None
         self.was_assigned = False
@@ -512,10 +512,10 @@ class Square(object):
     def _update_possible_digits(self):
         """Recalculate the possible digits for this square."""
         if self.current_value:
-            self.possible_digits = [self.current_value]
+            self.possible_digits = {self.current_value}
         else:
-            self.possible_digits = sorted(
-                DIGITS - {peer.current_value for peer in self.peers})
+            peer_digits = {peer.current_value for peer in self.peers}
+            self.possible_digits = DIGITS - peer_digits
         self.possible_digits_changed.emit()
 
 
